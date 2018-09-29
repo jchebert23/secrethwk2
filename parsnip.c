@@ -27,6 +27,7 @@ typedef struct sortedTokens{
 
 char * copyof(char *str)
 {
+	//IMPORTANT, error if str is null
 	int length=strlen(str);
 	char *c=malloc(sizeof(char)*(length+1));
 	strcpy(c, str);
@@ -107,12 +108,10 @@ void destroyTokenArray(token **arr, int *size)
 	free(arr);
 }
 
-void destroySortedToken(sortedTokens *s)
+void destroySortedToken(sortedTokens *s, int fullDelete)
 {
 	destroyTokenArray(s->args, s->argSize);
-	free(s->argSize);
 	destroyTokenArray(s->locals, s->localSize);
-	free(s->localSize);
 	if(s->inputRedirection)
 	{
 		free(s->inputRedirection);
@@ -121,7 +120,22 @@ void destroySortedToken(sortedTokens *s)
 	{
 		free(s->outputRedirection);
 	}
+	if(fullDelete)
+	{	
+	free(s->localSize);
+	free(s->argSize);
 	free(s);
+	}
+	else
+	{
+	*(s->localSize)=0;
+	*(s->argSize)=0;
+	s->inputRedirection=0;
+	s->outputRedirection=0;
+	s->outputOrInput=0;
+	s->args=0;
+	s->locals=0;
+	}
 
 }
 
@@ -150,37 +164,40 @@ void addToArr(sortedTokens*s, token **arr)
 	s->sizeOfOutputArr+=newSize;
 	if((*arr))
 	{
+		curIndex=s->sizeOfOutputArr-newSize;
+		(*arr)=realloc((*arr), sizeof(token)*s->sizeOfOutputArr);
 	}
 	else
 	{
 	    (*arr)=malloc(sizeof(token)*(newSize));
+	}
 	    for(int i=0; i<*(s->argSize); i++)
 	    {
-		    curIndex++;
-		    (*arr)[i].type=s->args[i]->type;
-		    (*arr)[i].text=s->args[i]->text;
+		    (*arr)[curIndex].type=s->args[i]->type;
+		    (*arr)[curIndex].text=s->args[i]->text;
 		    if(debugPrint1)
 		    {
 			    printf("Line %d, added toke of type: %d, and text: %s\n", __LINE__, (*arr)[i].type, (*arr)[i].text); 
 		    }
+		    curIndex++;
 	    }
 	    if(*(s->localSize)!=0)
 	    {
 		    int x=0;
 		    for(int i=*(s->argSize); i<*(s->argSize)+*(s->localSize);i++)
 		    {
-			    curIndex++; 
-			    (*arr)[i].type=s->locals[x]->type;
-			    (*arr)[i].text=s->locals[x]->text;
+			    (*arr)[curIndex].type=s->locals[x]->type;
+			    (*arr)[curIndex].text=s->locals[x]->text;
 			    if(debugPrint1)
 			    {
 			    printf("Line %d, added toke of type: %d, and text: %s\n", __LINE__, (*arr)[i].type, (*arr)[i].text); 
 			    }
+			    curIndex++;
 			    x++;
 		    }
 	    }
 
-	}
+	
 	//IMPORTANT HAVE TO DEAL WITH HANDLING WHICH REDIRECTION CAME FIRST
 	token *first=0;
 	token *second=0;
@@ -239,7 +256,7 @@ token * parse(token *tok){
 	    dumpList(arr);
     }
 
-    destroySortedToken(sortedToken);
+    destroySortedToken(sortedToken,1);
     return arr;
 }
 
@@ -411,7 +428,14 @@ void pipeline(sortedTokens *s, token **arr)
     }
     while(s->input[s->curIndex].type==PIPE)
     {
+	    s->sizeOfOutputArr++;
+	    (*arr)=realloc(*arr, sizeof(token) * (s->sizeOfOutputArr));
+	    (*arr)[s->sizeOfOutputArr-1].type=PIPE;
+	    (*arr)[s->sizeOfOutputArr-1].text=0;
+	    s->curIndex++;
+	    destroySortedToken(s, 0);	    
 	    stage(s, arr);
+	    addToArr(s, arr);
     }
 
 }
