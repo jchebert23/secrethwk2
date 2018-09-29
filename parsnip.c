@@ -15,6 +15,7 @@ typedef struct sortedTokens{
     int curIndex;
     int sizeOfOutputArr;
     int error;
+    int outputOrInput;
     int *argSize;
     int *localSize;
     token *input;
@@ -40,6 +41,7 @@ sortedTokens * initializeSortedToken(void)
 	sortedTokens *sortedTokenObject= malloc(sizeof(sortedTokens));
 	sortedTokenObject->sizeOfOutputArr=0;
 	sortedTokenObject->input=0;
+	sortedTokenObject->outputOrInput=0;
 	sortedTokenObject->argSize=malloc(sizeof(int));
 	*(sortedTokenObject->argSize)=0;
 	sortedTokenObject->localSize=malloc(sizeof(int));
@@ -113,12 +115,10 @@ void destroySortedToken(sortedTokens *s)
 	free(s->localSize);
 	if(s->inputRedirection)
 	{
-		free(s->inputRedirection->text);
 		free(s->inputRedirection);
 	}
 	if(s->outputRedirection)
 	{
-		free(s->outputRedirection->text);
 		free(s->outputRedirection);
 	}
 	free(s);
@@ -133,6 +133,20 @@ void addToArr(sortedTokens*s, token **arr)
 		printf("Size of args: %d\n", *(s->argSize));
 	}
 	int newSize= *(s->argSize) + *(s->localSize);
+	//IMPORTANT HAVE TO DEAL WITH WHEN output redirection is just a pipe
+	if(s->outputRedirection)
+	{
+	newSize+=1;
+	}
+	if(s->inputRedirection)
+	{
+	newSize+=1;
+	}
+	if(debugPrint1)
+	{
+		printf("NEW SIZE: %d\n", newSize);
+	}
+	int curIndex=0;
 	s->sizeOfOutputArr+=newSize;
 	if((*arr))
 	{
@@ -142,6 +156,7 @@ void addToArr(sortedTokens*s, token **arr)
 	    (*arr)=malloc(sizeof(token)*(newSize));
 	    for(int i=0; i<*(s->argSize); i++)
 	    {
+		    curIndex++;
 		    (*arr)[i].type=s->args[i]->type;
 		    (*arr)[i].text=s->args[i]->text;
 		    if(debugPrint1)
@@ -149,19 +164,48 @@ void addToArr(sortedTokens*s, token **arr)
 			    printf("Line %d, added toke of type: %d, and text: %s\n", __LINE__, (*arr)[i].type, (*arr)[i].text); 
 		    }
 	    }
-	    if(*(s->argSize)<newSize)
+	    if(*(s->localSize)!=0)
 	    {
-
-		    for(int i=*(s->argSize); i<newSize;i++)
+		    int x=0;
+		    for(int i=*(s->argSize); i<*(s->argSize)+*(s->localSize);i++)
 		    {
-
+			    curIndex++; 
+			    (*arr)[i].type=s->locals[x]->type;
+			    (*arr)[i].text=s->locals[x]->text;
+			    if(debugPrint1)
+			    {
 			    printf("Line %d, added toke of type: %d, and text: %s\n", __LINE__, (*arr)[i].type, (*arr)[i].text); 
-			    (*arr)[i].type=s->locals[i]->type;
-			    (*arr)[i].text=s->locals[i]->text;
+			    }
+			    x++;
 		    }
 	    }
 
 	}
+	//IMPORTANT HAVE TO DEAL WITH HANDLING WHICH REDIRECTION CAME FIRST
+	token *first=0;
+	token *second=0;
+	if(s->outputOrInput==1)
+	{
+	first=s->outputRedirection;
+	second=s->inputRedirection;
+	}
+	else if(s->outputOrInput==2)
+	{
+	first=s->inputRedirection;
+	second=s->outputRedirection;
+	}
+	if(first)
+	{
+		(*arr)[curIndex].type=first->type;
+		(*arr)[curIndex].text=first->text;
+		curIndex++;
+	}
+	if(second)
+	{
+		(*arr)[curIndex].type=second->type;
+		(*arr)[curIndex].text=second->text;
+	}
+	
 	if(debugPrint1)
 	{
 		printf("Line %d: at end of addtorarr\n", __LINE__);
@@ -174,6 +218,10 @@ token * parse(token *tok){
     sortedTokens *sortedToken=initializeSortedToken();
     sortedToken->input=tok;
     token *arr=0;
+    if(debugPrint1)
+    {
+	    dumpList(tok);
+    }
     command(sortedToken, &arr);
     if(debugPrint1)
     {
@@ -206,7 +254,10 @@ int redirect(sortedTokens *s, token **arr)
     int type=s->input[s->curIndex].type;
     if(type==RED_OUT || type==RED_OUT_APP || type==RED_ERR_OUT || type==RED_ERR_CLS)
     {
-
+	    if(s->outputOrInput==0)
+	    {
+		    s->outputOrInput=1;
+	    }
 	    s->outputRedirection=malloc(sizeof(token));
 	    s->outputRedirection->type=type;
 	    if(type==RED_OUT || type==RED_OUT_APP)
@@ -222,6 +273,10 @@ int redirect(sortedTokens *s, token **arr)
     }
     else if(type==RED_IN || type==RED_IN_HERE)
     {
+	    if(s->outputOrInput==0)
+	    {
+		    s->outputOrInput=2;
+	    }
 	    s->curIndex++;
 	    s->inputRedirection=malloc(sizeof(token));
 	    s->inputRedirection->type=type;
