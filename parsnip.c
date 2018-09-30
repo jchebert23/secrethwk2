@@ -328,13 +328,22 @@ int redirect(sortedTokens *s, token **arr)
 	    if(type==RED_OUT || type==RED_OUT_APP)
 	    {
 		    s->curIndex++;
+		    if(s->input[s->curIndex].type!=SIMPLE)
+		    {
+			    s->error=1;
+			    fprintf(stderr, "file arg needed");
+			    return 0;
+		    }
 		    s->outputRedirection->text = copyof(s->input[s->curIndex].text);
 	    }
 	    else
 	    {
 	    s->outputRedirection->text=0;
 	    }
+	    if(s->error!=1)
+	    {
 	    s->curIndex++;
+	    }
     }
     else if(type==RED_IN || type==RED_IN_HERE)
     {
@@ -343,6 +352,13 @@ int redirect(sortedTokens *s, token **arr)
 		    s->outputOrInput=2;
 	    }
 	    s->curIndex++;
+
+	    if(s->input[s->curIndex].type!=SIMPLE)
+	    {
+		    s->error=1;
+		    fprintf(stderr, "file arg needed");
+		    return 0;
+	    }
 	    s->inputRedirection=malloc(sizeof(token));
 	    s->inputRedirection->type=type;
 	    s->inputRedirection->text= copyof(s->input[s->curIndex].text);
@@ -404,9 +420,17 @@ void suffix(sortedTokens *s, token **arr)
 	else if(RED_OP(type))
 	{
 		redirect(s, arr);
+		if(s->error==0)
+		{
 		suffix(s, arr);
+		}
 	}
-	
+	else if(type==PAR_LEFT)
+	{
+		s->error=1;
+		//IMPORTANT: CAN REDIRECTION BE IN PARENS
+		fprintf(stderr, "unexpected command");
+	}
 
 }
 
@@ -428,7 +452,10 @@ void prefix(sortedTokens *s, token **arr)
 	else if(RED_OP(type))
 	{
 		redirect(s, arr);
+		if(s->error==0)
+		{
 		prefix(s, arr);
+		}
 	}
 
 }
@@ -455,6 +482,10 @@ token * stage(sortedTokens *s, token **arr)
 	    printf("Line Number: %d, in stage\n", __LINE__);
     }
     prefix(s, arr);
+    if(s->error==1)
+    {
+	    return 0;
+    }
     if(s->input[s->curIndex].type==PAR_LEFT)
     {
 	    token *arr2=0;
@@ -500,6 +531,10 @@ token * stage(sortedTokens *s, token **arr)
 		    return 0;
 	    }
 	    suffix(s, arr);
+	    if(s->error==1)
+	    {
+		    return 0;
+	    }
     }
     return 0;
 
