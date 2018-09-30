@@ -7,5 +7,5 @@ DATE  START TIME  TIME SPENT WORK COMPLETED
 09/27/18  11:00  2:00        Created Makfile, figured out tactic for tackling problem
 09/28/18  2:05   4:30        working on simplest case       
 9/29/18   4:00   4:00        dealing with redirect tokens, dealing with pipes
-9/30/18   1:20   2:00        getting command subcommand to work, handling cases where there are errors
-                 15:00  = TOTAL Time spent
+9/30/18   1:20   4:00        getting command subcommand to work, handling cases where there are errors, finished with here
+                 17:00  = TOTAL Time spent

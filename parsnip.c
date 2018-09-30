@@ -1,4 +1,5 @@
 #include "/c/cs323/Hwk2/parsnip.h"
+#define _GNU_SOURCE
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
@@ -317,6 +318,37 @@ void combineArrays(sortedTokens *s,token **arr, token *arr2)
 
 }
 
+int same(char *one, char *two)
+{
+	if(strlen(one)+1==strlen(two) && two[strlen(two)-1]=='\n')
+	{
+		for(int i=0; i<strlen(one); i++)
+		{
+			if(one[i]!=two[i])
+			{
+				return 0;
+			}
+		}
+		return 1;
+	}
+	else if(strlen(one)==strlen(two))
+	{
+	    
+		for(int i=0; i<strlen(one); i++)
+		{
+			if(one[i]!=two[i])
+			{
+				return 0;
+			}
+		}
+		return 1;
+	}
+	else
+	{
+		return 0;
+	}
+}
+
 int redirect(sortedTokens *s, token **arr)
 {
 
@@ -383,9 +415,99 @@ int redirect(sortedTokens *s, token **arr)
 		    fprintf(stderr, "file arg needed\n");
 		    return 0;
 	    }
+	    //HERE STUFF
 	    s->inputRedirection=malloc(sizeof(token));
 	    s->inputRedirection->type=type;
+	    if(type==RED_IN_HERE)
+	    {
+	    char * text = s->input[s->curIndex].text;
+	    //IMPORTANT OR THE END OF STDINPUT from packet
+	    char *stdinString=malloc(sizeof(char)*1);
+	    char *outputString=malloc(sizeof(char));
+	    int outputStringSize=0;
+	    size_t size=1;
+	    getline(&stdinString, &size, stdin);
+	    //IMPORTANT, make sure to not add above limit for stdin, after been expanded
+	    while(same(text,stdinString)==0 || outputStringSize+size>=8192)
+	    {
+		size--;
+		int newLineEnd=0;
+		if(stdinString[size-1]=='\n')
+		{
+		    newLineEnd=1;
+		    stdinString[size-1]='\0';
+		}
+		int dollarSign=0;
+		if(stdinString[0]=='$')
+		{
+			dollarSign=1;
+			stdinString++;
+		}
+		char *envVar2=getenv(stdinString);
+		if(envVar2)
+		{
+			int oldLength=strlen(envVar2);
+			char *envVar=malloc(sizeof(char)*oldLength);
+			strcpy(envVar, envVar2);
+			envVar=realloc(envVar, sizeof(char)*(oldLength+2));
+			envVar[oldLength]='\n';
+			envVar[oldLength+1]='\0';
+			if(dollarSign)
+			{
+				dollarSign=0;
+				stdinString--;
+			}
+			free(stdinString);
+			stdinString=envVar;
+			size=oldLength+1;
+		}
+		else
+		{
+		    if(newLineEnd)
+		    {
+			    stdinString[size-1]='\n';
+		    }
+		    if(dollarSign)
+		    {
+			    stdinString--;
+		    }
+		}
+
+
+		outputStringSize+=(size);
+		int otherStringIndex=0;
+		outputString=realloc(outputString, outputStringSize*sizeof(char));
+		for(int i=outputStringSize-(size); i<outputStringSize; i++)
+		{
+			outputString[i]=stdinString[otherStringIndex];
+			otherStringIndex++;
+		}
+		size=1;
+		free(stdinString);
+		stdinString=malloc(sizeof(char));
+		getline(&stdinString, &size, stdin);
+	    }
+	    
+	    outputString=realloc(outputString, (outputStringSize+1)*sizeof(char));
+	    outputString[outputStringSize]='\0';
+	    //IMPORTANT
+	    /*
+	    if(outputString[strlen(outputString)-1]!='\n')
+	    {
+		    //IMPORTANT DO I ADD NEW LINE CHARACTER IF NOT THERE
+		    outputStringSize++;
+		    outputString=realloc(outputString, sizeof(char)*(outputStringSize));
+		    outputString[outputStringSize-1]='\n';
+	    }
+	    */
+	    outputString=realloc(outputString, sizeof(char)*(outputStringSize+1));
+	    outputString[outputStringSize]='\0';
+	    s->inputRedirection->text=outputString;
+	    }
+	    else
+	    {
 	    s->inputRedirection->text= copyof(s->input[s->curIndex].text);
+	    }
 	    s->curIndex++;
     }
     else
