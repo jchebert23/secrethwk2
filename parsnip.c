@@ -279,12 +279,16 @@ token * parse(token *tok){
     arr[sortedToken->sizeOfOutputArr].type=NONE;
     arr[sortedToken->sizeOfOutputArr].text=0;
     }
-    destroySortedToken(sortedToken,1);
+
     if(sortedToken->error==1)
     {
-	    freeList(arr);
+	    if(arr)
+	    {
+    	    freeList(arr);
+	    }
 	    return 0;
     }
+    destroySortedToken(sortedToken,1);
     return arr;
 }
 
@@ -324,7 +328,7 @@ int redirect(sortedTokens *s, token **arr)
 	    {
 		    //IMPORTANT WHAT IF TRY TO OUPUT TWICE TO SAME PLACE
 		    s->error=1;
-		    fprintf(stderr, "trying too many output redirections");
+		    fprintf(stderr, "trying too many output redirections\n");
 		    return 0;
 
 	    }
@@ -340,7 +344,8 @@ int redirect(sortedTokens *s, token **arr)
 		    if(s->input[s->curIndex].type!=SIMPLE)
 		    {
 			    s->error=1;
-			    fprintf(stderr, "file arg needed");
+			    fprintf(stderr, "file arg needed\n");
+			    s->outputRedirection->text=0;
 			    return 0;
 		    }
 		    s->outputRedirection->text = copyof(s->input[s->curIndex].text);
@@ -359,7 +364,7 @@ int redirect(sortedTokens *s, token **arr)
 	    if(s->inputRedirection)
 	    {
 		    s->error=1;
-		    fprintf(stderr, "trying too many input redirection");
+		    fprintf(stderr, "trying too many input redirection\n");
 		    return 0;
 	    }
 	    if(s->outputOrInput==0)
@@ -371,7 +376,7 @@ int redirect(sortedTokens *s, token **arr)
 	    if(s->input[s->curIndex].type!=SIMPLE)
 	    {
 		    s->error=1;
-		    fprintf(stderr, "file arg needed");
+		    fprintf(stderr, "file arg needed\n");
 		    return 0;
 	    }
 	    s->inputRedirection=malloc(sizeof(token));
@@ -409,7 +414,7 @@ void argument(sortedTokens *s, token **arr)
 if(s->input[s->curIndex].type!=SIMPLE)
 {
 	s->error=1;
-	fprintf(stderr, "Missing Argument");
+	fprintf(stderr, "Missing Argument\n");
 }
 else
 {
@@ -444,7 +449,7 @@ void suffix(sortedTokens *s, token **arr)
 	{
 		s->error=1;
 		//IMPORTANT: CAN REDIRECTION BE IN PARENS
-		fprintf(stderr, "unexpected command");
+		fprintf(stderr, "unexpected command\n");
 	}
 
 }
@@ -529,7 +534,7 @@ token * stage(sortedTokens *s, token **arr)
 	    else
 	    {
 		    s->error=1;
-		    fprintf(stderr, "Missing Closing Parenthesis");
+		    fprintf(stderr, "Missing Closing Parenthesis\n");
 		    return 0;
 	    }
 	    s->curIndex++;
@@ -586,7 +591,7 @@ void pipeline(sortedTokens *s, token **arr)
 	    if(s->outputRedirection)
 	    {
 		    s->error=1;
-		    fprintf(stderr, "trying to pipe when output already redirected");
+		    fprintf(stderr, "trying to pipe when output already redirected\n");
 		    break;
 	    }
 	    addExtraToken(s, arr, PIPE,1);
