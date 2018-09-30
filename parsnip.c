@@ -319,6 +319,15 @@ int redirect(sortedTokens *s, token **arr)
     int type=s->input[s->curIndex].type;
     if(type==RED_OUT || type==RED_OUT_APP || type==RED_ERR_OUT || type==RED_ERR_CLS)
     {
+	    //IMPORTANT HAVE TO CHECK FOR DIFFERENCE B/T output and error redirection
+	    if(s->outputRedirection)
+	    {
+		    //IMPORTANT WHAT IF TRY TO OUPUT TWICE TO SAME PLACE
+		    s->error=1;
+		    fprintf(stderr, "trying too many output redirections");
+		    return 0;
+
+	    }
 	    if(s->outputOrInput==0)
 	    {
 		    s->outputOrInput=1;
@@ -347,6 +356,12 @@ int redirect(sortedTokens *s, token **arr)
     }
     else if(type==RED_IN || type==RED_IN_HERE)
     {
+	    if(s->inputRedirection)
+	    {
+		    s->error=1;
+		    fprintf(stderr, "trying too many input redirection");
+		    return 0;
+	    }
 	    if(s->outputOrInput==0)
 	    {
 		    s->outputOrInput=2;
@@ -568,6 +583,12 @@ void pipeline(sortedTokens *s, token **arr)
     }
     while(s->input[s->curIndex].type==PIPE)
     {
+	    if(s->outputRedirection)
+	    {
+		    s->error=1;
+		    fprintf(stderr, "trying to pipe when output already redirected");
+		    break;
+	    }
 	    addExtraToken(s, arr, PIPE,1);
 	    arr2=stage(s, arr);
 	    if(s->error==1)
