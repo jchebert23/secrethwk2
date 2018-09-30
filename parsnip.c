@@ -279,7 +279,11 @@ token * parse(token *tok){
     arr[sortedToken->sizeOfOutputArr].type=NONE;
     arr[sortedToken->sizeOfOutputArr].text=0;
     }
-
+    if(sortedToken->input[sortedToken->curIndex].type!=NONE && sortedToken->error==0)
+    {
+	    fprintf(stderr, "Error input not on none token at end\n");
+	    sortedToken->error=1;
+    }
     if(sortedToken->error==1)
     {
 	    if(arr)
