@@ -10,7 +10,7 @@
 #include <inttypes.h>
 #include <errno.h>
 
-int debugPrint1=1;
+int debugPrint1=0;
 typedef struct sortedTokens{
     int curIndex;
     int sizeOfOutputArr;
@@ -143,7 +143,14 @@ void addExtraToken(sortedTokens *s, token **arr, int character, int delete)
 {
 
 	    s->sizeOfOutputArr++;
+	    if((*arr))
+	    {
 	    (*arr)=realloc(*arr, sizeof(token) * (s->sizeOfOutputArr));
+	    }
+	    else
+	    {
+		    (*arr)=malloc(sizeof(token));
+	    }
 	    (*arr)[s->sizeOfOutputArr-1].type=character;
 	    (*arr)[s->sizeOfOutputArr-1].text=0;
 	    s->curIndex++;
@@ -261,22 +268,41 @@ token * parse(token *tok){
     {
 	    printOutputArr(sortedToken, &arr);
     }
+    if(debugPrint1)
+    {
+	    printOutputArr(sortedToken, &arr);
+    }
+
     if(tok)
     {
     arr=realloc(arr,sizeof(token)*(sortedToken->sizeOfOutputArr+1));
     arr[sortedToken->sizeOfOutputArr].type=NONE;
     arr[sortedToken->sizeOfOutputArr].text=0;
     }
-    if(debugPrint1)
-    {
-	    printOutputArr(sortedToken, &arr);
-	    dumpList(arr);
-    }
-
     destroySortedToken(sortedToken,1);
     return arr;
 }
 
+void combineArrays(sortedTokens *s,token **arr, token *arr2)
+{
+    int i=0;
+    while(arr2[i].type!=NONE)
+    {
+	    i++;
+    }
+    (*arr)=realloc((*arr), sizeof(token) * (s->sizeOfOutputArr+i));
+    i=0;
+    while(arr2[i].type!=NONE)
+    {
+
+	    (*arr)[s->sizeOfOutputArr].type=arr2[i].type;
+
+	    (*arr)[s->sizeOfOutputArr].text=arr2[i].text;
+	    s->sizeOfOutputArr++;
+	    i++;
+    }
+
+}
 
 int redirect(sortedTokens *s, token **arr)
 {
@@ -407,7 +433,7 @@ void redlist(sortedTokens *s, token **arr)
 
 
 
-void stage(sortedTokens *s, token **arr)
+token * stage(sortedTokens *s, token **arr)
 {
 
     if(debugPrint1)
@@ -417,31 +443,41 @@ void stage(sortedTokens *s, token **arr)
     prefix(s, arr);
     if(s->input[s->curIndex].type==PAR_LEFT)
     {
-	    addExtraToken(s, arr, PAR_LEFT, 0);
+	    token *arr2=0;
+
 	    sortedTokens *s2=initializeSortedToken();
 	    s2->curIndex=s->curIndex;
-	    s2->sizeOfOutputArr=s->sizeOfOutputArr; 
 	    s2->input=s->input;
-	    command(s2, arr);
+	    
+	    addExtraToken(s2, &arr2, PAR_LEFT, 0);
+	    command(s2, &arr2);
+	    if(debugPrint1)
+	    {
+		    printf("Line %d, done with recursive command call\n", __LINE__);
+	    }
 	    s->curIndex=s2->curIndex;
-	    s->sizeOfOutputArr=s2->sizeOfOutputArr;
 	    if(debugPrint1)
 	    {
 		    printf("Current Index And Size of Output Arr, %d : %d\n", s->curIndex, s->sizeOfOutputArr);
 	    }
 	    //IMPORTANT ERROR IF NEXT THING IS NOT PAR RIGHT
+	    //IMPORTANT HAVE TO FREE S2
 	    if(s->input[s->curIndex].type==PAR_RIGHT)
 	    {
-		    addExtraToken(s, arr, PAR_RIGHT,0);
+		    addExtraToken(s2, &arr2, PAR_RIGHT,0);
 	    }
-
+	    s->curIndex++;
+	    addExtraToken(s2, &arr2, NONE, 0);
+	    destroySortedToken(s2, 1);
 	    redlist(s, arr);
+	    return arr2;
     }
     else
     {
 	    argument(s, arr);
 	    suffix(s, arr);
     }
+    return 0;
 
 }
 
@@ -453,8 +489,15 @@ void pipeline(sortedTokens *s, token **arr)
     {
 	    printf("Line Number: %d, in pipeline\n", __LINE__);
     }
-    stage(s, arr);
+
+    token *arr2=stage(s, arr);
     addToArr(s, arr);
+    if(arr2)
+    {
+	    combineArrays(s,arr, arr2);
+	    free(arr2);
+    }
+
     if(debugPrint1)
     {
 	    printf("About to print to ouput arr\n");
@@ -489,6 +532,10 @@ void andOr(sortedTokens *s, token **arr)
 	   addExtraToken(s, arr, type,1);
 	   pipeline(s, arr);
 	   type=s->input[s->curIndex].type;
+   }
+   if(debugPrint1)
+   {
+	   printf("Line Number: %d, end of andOr\n", __LINE__);
    }
 }
 
@@ -526,6 +573,14 @@ void command(sortedTokens *s, token **arr)
     if(type==SEP_END || type==SEP_BG)
     {
 	    addExtraToken(s, arr, type,1);
+    }
+    else
+    {
+	    
+	    (*arr)=realloc((*arr), sizeof(token) * (s->sizeOfOutputArr+1));
+	    s->sizeOfOutputArr++;
+	    (*arr)[s->sizeOfOutputArr-1].type=SEP_END;
+	    (*arr)[s->sizeOfOutputArr-1].text=0;
     }
 }
 
