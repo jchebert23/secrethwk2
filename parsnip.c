@@ -139,6 +139,20 @@ void destroySortedToken(sortedTokens *s, int fullDelete)
 
 }
 
+void addExtraToken(sortedTokens *s, token **arr, int character, int delete)
+{
+
+	    s->sizeOfOutputArr++;
+	    (*arr)=realloc(*arr, sizeof(token) * (s->sizeOfOutputArr));
+	    (*arr)[s->sizeOfOutputArr-1].type=character;
+	    (*arr)[s->sizeOfOutputArr-1].text=0;
+	    s->curIndex++;
+	    if(delete)
+	    {
+	    destroySortedToken(s, 0);
+	    }
+}
+
 void addToArr(sortedTokens*s, token **arr)
 {
 	if(debugPrint1)
@@ -156,6 +170,8 @@ void addToArr(sortedTokens*s, token **arr)
 	{
 	newSize+=1;
 	}
+	if(newSize)
+	{
 	if(debugPrint1)
 	{
 		printf("NEW SIZE: %d\n", newSize);
@@ -226,6 +242,7 @@ void addToArr(sortedTokens*s, token **arr)
 	if(debugPrint1)
 	{
 		printf("Line %d: at end of addtorarr\n", __LINE__);
+	}
 	}
 }
 
@@ -400,7 +417,24 @@ void stage(sortedTokens *s, token **arr)
     prefix(s, arr);
     if(s->input[s->curIndex].type==PAR_LEFT)
     {
-	    command(s, arr);
+	    addExtraToken(s, arr, PAR_LEFT, 0);
+	    sortedTokens *s2=initializeSortedToken();
+	    s2->curIndex=s->curIndex;
+	    s2->sizeOfOutputArr=s->sizeOfOutputArr; 
+	    s2->input=s->input;
+	    command(s2, arr);
+	    s->curIndex=s2->curIndex;
+	    s->sizeOfOutputArr=s2->sizeOfOutputArr;
+	    if(debugPrint1)
+	    {
+		    printf("Current Index And Size of Output Arr, %d : %d\n", s->curIndex, s->sizeOfOutputArr);
+	    }
+	    //IMPORTANT ERROR IF NEXT THING IS NOT PAR RIGHT
+	    if(s->input[s->curIndex].type==PAR_RIGHT)
+	    {
+		    addExtraToken(s, arr, PAR_RIGHT,0);
+	    }
+
 	    redlist(s, arr);
     }
     else
@@ -428,14 +462,13 @@ void pipeline(sortedTokens *s, token **arr)
     }
     while(s->input[s->curIndex].type==PIPE)
     {
-	    s->sizeOfOutputArr++;
-	    (*arr)=realloc(*arr, sizeof(token) * (s->sizeOfOutputArr));
-	    (*arr)[s->sizeOfOutputArr-1].type=PIPE;
-	    (*arr)[s->sizeOfOutputArr-1].text=0;
-	    s->curIndex++;
-	    destroySortedToken(s, 0);	    
+	    addExtraToken(s, arr, PIPE,1);
 	    stage(s, arr);
 	    addToArr(s, arr);
+    }
+    if(debugPrint1)
+    {
+	    printf("LINE %d, end of pipeline\n", __LINE__);
     }
 
 }
@@ -450,9 +483,12 @@ void andOr(sortedTokens *s, token **arr)
 	    printf("Line Number: %d, in andOr\n", __LINE__);
     }
    pipeline(s, arr);
-   while(s->input[s->curIndex].type==SEP_AND || s->input[s->curIndex].type==SEP_OR)
+   int type= s->input[s->curIndex].type;
+   while(type==SEP_AND || type==SEP_OR)
    {
+	   addExtraToken(s, arr, type,1);
 	   pipeline(s, arr);
+	   type=s->input[s->curIndex].type;
    }
 }
 
@@ -464,9 +500,16 @@ void list(sortedTokens *s, token **arr)
 	    printf("Line Number: %d, in list\n", __LINE__);
     }
     andOr(s, arr);
-    while(s->input[s->curIndex].type==SEP_END || s->input[s->curIndex].type==SEP_BG)
+    int type= s->input[s->curIndex].type;
+    while((s->input[s->curIndex].type==SEP_END || s->input[s->curIndex].type==SEP_BG) && s->input[s->curIndex+1].type!=NONE && s->input[s->curIndex+1].type!=PAR_RIGHT)
     {
+	addExtraToken(s, arr, type,1);
 	andOr(s, arr);
+	type=s->input[s->curIndex].type;
+	if(debugPrint1)
+	{
+		printf("TYPE IN LIST:%d\n", type);
+	}
     }
 }
 
@@ -478,7 +521,12 @@ void command(sortedTokens *s, token **arr)
 	    printOutputArr(s,arr);
     }
     list(s, arr);
-
+    
+    int type= s->input[s->curIndex].type;
+    if(type==SEP_END || type==SEP_BG)
+    {
+	    addExtraToken(s, arr, type,1);
+    }
 }
 
 
