@@ -10,7 +10,7 @@
 #include <inttypes.h>
 #include <errno.h>
 
-int debugPrint1=0;
+int debugPrint1=1;
 typedef struct sortedTokens{
     int curIndex;
     int sizeOfOutputArr;
@@ -494,6 +494,10 @@ void pipeline(sortedTokens *s, token **arr)
     addToArr(s, arr);
     if(arr2)
     {
+	    if(debugPrint1)
+	    {
+		    printf("about to combine ARRAYS!!!\n");
+	    }
 	    combineArrays(s,arr, arr2);
 	    free(arr2);
     }
@@ -506,8 +510,14 @@ void pipeline(sortedTokens *s, token **arr)
     while(s->input[s->curIndex].type==PIPE)
     {
 	    addExtraToken(s, arr, PIPE,1);
-	    stage(s, arr);
+	    arr2=stage(s, arr);
 	    addToArr(s, arr);
+
+	    if(arr2)
+	    {
+		    combineArrays(s, arr, arr2);
+		    free(arr2);
+	    }
     }
     if(debugPrint1)
     {
