@@ -10,7 +10,7 @@
 #include <inttypes.h>
 #include <errno.h>
 
-int debugPrint1=1;
+int debugPrint1=0;
 typedef struct sortedTokens{
     int curIndex;
     int sizeOfOutputArr;
@@ -280,6 +280,11 @@ token * parse(token *tok){
     arr[sortedToken->sizeOfOutputArr].text=0;
     }
     destroySortedToken(sortedToken,1);
+    if(sortedToken->error==1)
+    {
+	    freeList(arr);
+	    return 0;
+    }
     return arr;
 }
 
@@ -370,9 +375,17 @@ void argument(sortedTokens *s, token **arr)
     {
 	    printf("Line Number: %d, in argument\n", __LINE__);
     }
+if(s->input[s->curIndex].type!=SIMPLE)
+{
+	s->error=1;
+	fprintf(stderr, "Missing Argument");
+}
+else
+{
 char* text=s->input[s->curIndex].text;
 s->args=addToTokenArray(s->args, ARG, copyof(text), s->argSize);
 s->curIndex++;
+}
 }
 
 void suffix(sortedTokens *s, token **arr)
@@ -393,6 +406,7 @@ void suffix(sortedTokens *s, token **arr)
 		redirect(s, arr);
 		suffix(s, arr);
 	}
+	
 
 }
 
@@ -466,6 +480,12 @@ token * stage(sortedTokens *s, token **arr)
 	    {
 		    addExtraToken(s2, &arr2, PAR_RIGHT,0);
 	    }
+	    else
+	    {
+		    s->error=1;
+		    fprintf(stderr, "Missing Closing Parenthesis");
+		    return 0;
+	    }
 	    s->curIndex++;
 	    addExtraToken(s2, &arr2, NONE, 0);
 	    destroySortedToken(s2, 1);
@@ -475,6 +495,10 @@ token * stage(sortedTokens *s, token **arr)
     else
     {
 	    argument(s, arr);
+	    if(s->error==1)
+	    {
+		    return 0;
+	    }
 	    suffix(s, arr);
     }
     return 0;
@@ -511,6 +535,9 @@ void pipeline(sortedTokens *s, token **arr)
     {
 	    addExtraToken(s, arr, PIPE,1);
 	    arr2=stage(s, arr);
+	    if(s->error==1)
+	    {break;}
+	    
 	    addToArr(s, arr);
 
 	    if(arr2)
@@ -518,6 +545,7 @@ void pipeline(sortedTokens *s, token **arr)
 		    combineArrays(s, arr, arr2);
 		    free(arr2);
 	    }
+	    
     }
     if(debugPrint1)
     {
@@ -537,10 +565,15 @@ void andOr(sortedTokens *s, token **arr)
     }
    pipeline(s, arr);
    int type= s->input[s->curIndex].type;
+   if(s->error==1)
+    {
+	    type=0;
+    }
    while(type==SEP_AND || type==SEP_OR)
    {
 	   addExtraToken(s, arr, type,1);
 	   pipeline(s, arr);
+	   if(s->error==1){break;}
 	   type=s->input[s->curIndex].type;
    }
    if(debugPrint1)
@@ -558,10 +591,12 @@ void list(sortedTokens *s, token **arr)
     }
     andOr(s, arr);
     int type= s->input[s->curIndex].type;
+    if(s->error==1){type=0;}
     while((s->input[s->curIndex].type==SEP_END || s->input[s->curIndex].type==SEP_BG) && s->input[s->curIndex+1].type!=NONE && s->input[s->curIndex+1].type!=PAR_RIGHT)
     {
 	addExtraToken(s, arr, type,1);
 	andOr(s, arr);
+	if(s->error==1){break;}
 	type=s->input[s->curIndex].type;
 	if(debugPrint1)
 	{
@@ -578,19 +613,21 @@ void command(sortedTokens *s, token **arr)
 	    printOutputArr(s,arr);
     }
     list(s, arr);
-    
-    int type= s->input[s->curIndex].type;
-    if(type==SEP_END || type==SEP_BG)
+    if(s->error!=1)
     {
-	    addExtraToken(s, arr, type,1);
-    }
-    else
-    {
-	    
-	    (*arr)=realloc((*arr), sizeof(token) * (s->sizeOfOutputArr+1));
-	    s->sizeOfOutputArr++;
-	    (*arr)[s->sizeOfOutputArr-1].type=SEP_END;
-	    (*arr)[s->sizeOfOutputArr-1].text=0;
+	    int type= s->input[s->curIndex].type;
+	    if(type==SEP_END || type==SEP_BG)
+	    {
+		    addExtraToken(s, arr, type,1);
+	    }
+	    else
+	    {
+		    
+		    (*arr)=realloc((*arr), sizeof(token) * (s->sizeOfOutputArr+1));
+		    s->sizeOfOutputArr++;
+		    (*arr)[s->sizeOfOutputArr-1].type=SEP_END;
+		    (*arr)[s->sizeOfOutputArr-1].text=0;
+	    }
     }
 }
 
