@@ -12,6 +12,7 @@
 #include <errno.h>
 
 int debugPrint1=0;
+int debugPrint2=0;
 typedef struct sortedTokens{
     int curIndex;
     int sizeOfOutputArr;
@@ -420,88 +421,92 @@ int redirect(sortedTokens *s, token **arr)
 	    s->inputRedirection->type=type;
 	    if(type==RED_IN_HERE)
 	    {
-	    char * text = s->input[s->curIndex].text;
+	    //Important, backslash stuff
+	    char * text = s->input[s->curIndex].text; 
 	    //IMPORTANT OR THE END OF STDINPUT from packet
 	    char *stdinString=malloc(sizeof(char)*1);
 	    char *outputString=malloc(sizeof(char));
-	    int outputStringSize=0;
 	    size_t size=1;
-	    getline(&stdinString, &size, stdin);
+	    int oldSize=0;
+	    int endOfFile;
+	    endOfFile=getline(&stdinString, &size, stdin);
 	    //IMPORTANT, make sure to not add above limit for stdin, after been expanded
-	    while(same(text,stdinString)==0 || outputStringSize+size>=8192)
+	    while(same(text,stdinString)==0 && endOfFile!=-1 )
 	    {
-		size--;
-		int newLineEnd=0;
-		if(stdinString[size-1]=='\n')
-		{
-		    newLineEnd=1;
-		    stdinString[size-1]='\0';
-		}
-		int dollarSign=0;
-		if(stdinString[0]=='$')
-		{
-			dollarSign=1;
-			stdinString++;
-		}
-		char *envVar2=getenv(stdinString);
-		if(envVar2)
-		{
-			int oldLength=strlen(envVar2);
-			char *envVar=malloc(sizeof(char)*oldLength);
-			strcpy(envVar, envVar2);
-			envVar=realloc(envVar, sizeof(char)*(oldLength+2));
-			envVar[oldLength]='\n';
-			envVar[oldLength+1]='\0';
-			if(dollarSign)
-			{
-				dollarSign=0;
-				stdinString--;
-			}
-			free(stdinString);
-			stdinString=envVar;
-			size=oldLength+1;
-		}
-		else
-		{
-		    if(newLineEnd)
+		    int index=0;
+		    char *curWord;
+		    while(index<endOfFile-1)
 		    {
-			    stdinString[size-1]='\n';
-		    }
-		    if(dollarSign)
-		    {
-			    stdinString--;
-		    }
-		}
+			    int lengthOfWord=0;
+			    while(strchr(VARCHR, stdinString[index]) || (stdinString[index]=='$' && lengthOfWord==0))
+			    {
+				    lengthOfWord++;
+				    index++; 
+			    }
 
+			    curWord=malloc(sizeof(char)*(lengthOfWord+1));
+			    index=index-lengthOfWord;
+			    int i=0;
+			    while(strchr(VARCHR, stdinString[index]) || (stdinString[index]=='$' && i==0))
+			    {
+				    curWord[i]=stdinString[index];
+				    i++;
+				    index++;
+			    }
+			    curWord[lengthOfWord]='\0';
+			    char *envVar=0;
+			    if(curWord[0]=='$')
+			    {
+				    curWord++;	
+				    envVar=getenv(curWord);
+			    }
+			    if(envVar)
+			    {
+				    lengthOfWord=strlen(envVar);
+				    free(curWord-1);
+				    curWord=malloc(sizeof(char) * (lengthOfWord+1));
+				    strcpy(curWord,envVar);
+				    curWord[lengthOfWord]='\0';
+			    }
+			    outputString=realloc(outputString, sizeof(char) * (lengthOfWord+oldSize));
+			    for(int i=oldSize; i<lengthOfWord+oldSize; i ++)
+			    {
+				    outputString[i]=curWord[i-oldSize];
+			    }
+			    oldSize+=lengthOfWord;
+			    int escapeCharacter=0;
+			    while(strchr(VARCHR, stdinString[index])==0 && stdinString[index]!='\n' )
+			    {
+				    if(escapeCharacter && (stdinString[index]=='$' || stdinString[index]=='\\'))
+				    {
+				    escapeCharacter=0;
+				    outputString[oldSize-1]=stdinString[index];
+				    }
+				    else
+				    {
+				    if(stdinString[index]=='\\')
+				    {
+					    escapeCharacter=1;
+				    }
+				    outputString=realloc(outputString, sizeof(char) * (oldSize+1));
+				    outputString[oldSize]=stdinString[index];
+				    oldSize++;
+				    }
+				    index++;
+			    }
+			    free(curWord);
 
-		outputStringSize+=(size);
-		int otherStringIndex=0;
-		outputString=realloc(outputString, outputStringSize*sizeof(char));
-		for(int i=outputStringSize-(size); i<outputStringSize; i++)
-		{
-			outputString[i]=stdinString[otherStringIndex];
-			otherStringIndex++;
-		}
-		size=1;
-		free(stdinString);
-		stdinString=malloc(sizeof(char));
-		getline(&stdinString, &size, stdin);
+		    }
+		    outputString=realloc(outputString, sizeof(char) * (oldSize+1));
+
+		    outputString[oldSize]='\n';
+		    oldSize++;
+		    endOfFile=getline(&stdinString, &size, stdin);
 	    }
-	    
-	    outputString=realloc(outputString, (outputStringSize+1)*sizeof(char));
-	    outputString[outputStringSize]='\0';
-	    //IMPORTANT
-	    /*
-	    if(outputString[strlen(outputString)-1]!='\n')
-	    {
-		    //IMPORTANT DO I ADD NEW LINE CHARACTER IF NOT THERE
-		    outputStringSize++;
-		    outputString=realloc(outputString, sizeof(char)*(outputStringSize));
-		    outputString[outputStringSize-1]='\n';
-	    }
-	    */
-	    outputString=realloc(outputString, sizeof(char)*(outputStringSize+1));
-	    outputString[outputStringSize]='\0';
+
+	    outputString=realloc(outputString, sizeof(char) * (oldSize+1));
+
+	     outputString[oldSize]='\0';
 	    s->inputRedirection->text=outputString;
 	    }
 	    else
