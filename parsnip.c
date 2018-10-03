@@ -13,6 +13,7 @@
 
 int debugPrint1=0;
 int debugPrint2=0;
+int debugPrint3=0;
 typedef struct sortedTokens{
     int curIndex;
     int sizeOfOutputArr;
@@ -327,6 +328,8 @@ token * parse(token *tok){
     int index;
     if(sortedToken->error==1)
     {
+	    
+    destroySortedToken(sortedToken,1);
 	    if(arr)
 	    {
 		    freeList(arr);
@@ -339,9 +342,12 @@ token * parse(token *tok){
 	    index=0;
 	    while(arr[index].type!=NONE)
 	    {
+
 		    if(arr[index].type==RED_IN_HERE)
 		    {
+			    char *orig=arr[index].text;
 			    arr[index].text=hereDocument(arr[index].text);
+			    free(orig);
 		    }
 		    index++;
 	    }
@@ -461,17 +467,25 @@ int tooManyHere(sortedTokens *s)
 char * hereDocument(char *text)
 {
 
-	    char *stdinString=malloc(sizeof(char)*1);
+	    char *stdinString=0;
 	    char *outputString=malloc(sizeof(char));
-	    size_t size=1;
+	    size_t size=0;;
 	    int oldSize=0;
 	    int endOfFile;
 	    endOfFile=getline(&stdinString, &size, stdin);
 	    //IMPORTANT, make sure to not add above limit for stdin, after been expanded
-	    while(same(text,stdinString)==0 && endOfFile!=-1 )
+	    //IMPORTANT, have to add newline if not there
+	    if(endOfFile==-1)
+	    {
+		    oldSize++;
+		    outputString[0]='\n';
+	    }
+	    while(endOfFile!=-1 && same(text,stdinString)==0)
 	    {
 		    int index=0;
 		    char *curWord;
+
+		    int escapeCharacter=0;
 		    while(index<endOfFile-1)
 		    {
 			    int lengthOfWord=0;
@@ -511,7 +525,7 @@ char * hereDocument(char *text)
 				    outputString[i]=curWord[i-oldSize];
 			    }
 			    oldSize+=lengthOfWord;
-			    int escapeCharacter=0;
+			    escapeCharacter=0;
 			    while(strchr(VARCHR, stdinString[index])==0 && stdinString[index]!='\n' )
 			    {
 				    if(escapeCharacter && (stdinString[index]=='$' || stdinString[index]=='\\'))
@@ -525,6 +539,10 @@ char * hereDocument(char *text)
 				    {
 					    escapeCharacter=1;
 				    }
+				    else
+				    {
+					    escapeCharacter=0;
+				    }
 				    outputString=realloc(outputString, sizeof(char) * (oldSize+1));
 				    outputString[oldSize]=stdinString[index];
 				    oldSize++;
@@ -534,13 +552,21 @@ char * hereDocument(char *text)
 			    free(curWord);
 
 		    }
+		    if(escapeCharacter)
+		    {
+			    oldSize--;
+		    }
 		    outputString=realloc(outputString, sizeof(char) * (oldSize+1));
-
+		    free(stdinString); 
+		    stdinString=0;
+		    if(escapeCharacter==0)
+		    {
 		    outputString[oldSize]='\n';
+		    }
 		    oldSize++;
 		    endOfFile=getline(&stdinString, &size, stdin);
 	    }
-
+	    free(stdinString);	
 	    outputString=realloc(outputString, sizeof(char) * (oldSize+1));
 	    outputString[oldSize]='\0';
 	    return outputString;
@@ -782,7 +808,14 @@ token * stage(sortedTokens *s, token **arr)
 	    }
 	    s->curIndex++;
 	    addExtraToken(s2, &arr2, NONE, 0);
+	    s->error=s2->error;
 	    destroySortedToken(s2, 1);
+	    if(s->error)
+	    {
+		    freeList(arr2);
+		    return 0;
+
+	    }
 	    redlist(s, arr);
 	    return arr2;
     }
