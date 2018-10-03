@@ -408,6 +408,39 @@ token ** firstSecondOrThird(sortedTokens *s)
 	}
 }
 
+int tooManyHere(sortedTokens *s)
+{
+	int curIndex=s->curIndex+1;
+	while(s->input[curIndex].type!=NONE)
+	{
+	    if(s->input[curIndex].type==RED_IN || s->input[curIndex].type==RED_IN_HERE)
+	    {
+		return 1;
+	    }
+	    else if(s->input[curIndex].type==PAR_LEFT)
+	    {
+		    curIndex++;
+		    while(s->input[curIndex].type!=PAR_RIGHT)
+		    {
+			    if(s->input[curIndex].type==NONE)
+			    {
+				    return 1;
+			    }
+			    curIndex++;
+		    }
+	    }
+	    else if(s->input[curIndex].type==PIPE || s->input[curIndex].type==SEP_AND || s->input[curIndex].type==SEP_OR ||s->input[curIndex].type==SEP_END  ||s->input[curIndex].type==SEP_BG)
+	    {
+		    return 0;
+	    }
+	    else
+	    {
+		    curIndex++;
+	    } 
+	}
+	return 0;
+}
+
 int redirect(sortedTokens *s, token **arr)
 {
 
@@ -465,6 +498,12 @@ int redirect(sortedTokens *s, token **arr)
 	    {
 		    s->error=1;
 		    fprintf(stderr, "trying too many input redirection\n");
+		    return 0;
+	    }
+	    if(type==RED_IN_HERE && tooManyHere(s))
+	    {
+		    s->error=1;
+		    fprintf(stderr, "try too many input redirections\n");
 		    return 0;
 	    }
 	    s->inputRedirection=1;
