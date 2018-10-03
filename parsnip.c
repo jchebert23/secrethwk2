@@ -294,7 +294,7 @@ void addToArr(sortedTokens*s, token **arr)
 }
 
 void command(sortedTokens*s, token **arr);
-
+char *hereDocument(char *text);
 token * parse(token *tok){
     sortedTokens *sortedToken=initializeSortedToken();
     sortedToken->input=tok;
@@ -324,15 +324,31 @@ token * parse(token *tok){
 	    fprintf(stderr, "Error input not on none token at end\n");
 	    sortedToken->error=1;
     }
+    int index;
     if(sortedToken->error==1)
     {
 	    if(arr)
 	    {
-    	    freeList(arr);
+		    freeList(arr);
 	    }
 	    return 0;
     }
+
     destroySortedToken(sortedToken,1);
+
+	    index=0;
+	    while(arr[index].type!=NONE)
+	    {
+		    if(arr[index].type==RED_IN_HERE)
+		    {
+			    arr[index].text=hereDocument(arr[index].text);
+		    }
+		    index++;
+	    }
+    
+    
+    
+    
     return arr;
 }
 
@@ -441,88 +457,10 @@ int tooManyHere(sortedTokens *s)
 	return 0;
 }
 
-int redirect(sortedTokens *s, token **arr)
+
+char * hereDocument(char *text)
 {
 
-    if(debugPrint1)
-    {
-	    printf("Line Number: %d, in redirect\n", __LINE__);
-    }
-    int type=s->input[s->curIndex].type;
-    token **output=firstSecondOrThird(s);
-    if(type==RED_OUT || type==RED_OUT_APP) 
-    {
-	    //IMPORTANT HAVE TO CHECK FOR DIFFERENCE B/T output and error redirection
-	    if(s->outputRedirection)
-	    {
-		    //IMPORTANT WHAT IF TRY TO OUPUT TWICE TO SAME PLACE
-		    s->error=1;
-		    fprintf(stderr, "trying too many output redirections\n");
-		    return 0;
-
-	    }
-	    s->outputRedirection=1;
-	    (*output)=malloc(sizeof(token));
-	    (*output)->type=type;
-		    s->curIndex++;
-		    if(s->input[s->curIndex].type!=SIMPLE)
-		    {
-			    s->error=1;
-			    fprintf(stderr, "file arg needed\n");
-			    (*output)->text=0;
-			    return 0;
-		    }
-		    (*output)->text = copyof(s->input[s->curIndex].text);
-	    if(s->error!=1)
-	    {
-	    s->curIndex++;
-	    }
-    }
-    else if(type==RED_ERR_OUT || type==RED_ERR_CLS)
-    {
-	    if(s->errorRedirection)
-	    {
-		    s->error=1;
-		    fprintf(stderr, "trying too many error redirection\n");
-		    return 0;
-	    }
-	    s->errorRedirection=1;
-	    s->curIndex++;
-	    (*output)=malloc(sizeof(token));
-	    (*output)->type=type;
-	    (*output)->text=0;
-    }
-    else if(type==RED_IN || type==RED_IN_HERE)
-    {
-	    if(s->inputRedirection)
-	    {
-		    s->error=1;
-		    fprintf(stderr, "trying too many input redirection\n");
-		    return 0;
-	    }
-	    if(type==RED_IN_HERE && tooManyHere(s))
-	    {
-		    s->error=1;
-		    fprintf(stderr, "try too many input redirections\n");
-		    return 0;
-	    }
-	    s->inputRedirection=1;
-	    s->curIndex++;
-
-	    if(s->input[s->curIndex].type!=SIMPLE)
-	    {
-		    s->error=1;
-		    fprintf(stderr, "file arg needed\n");
-		    return 0;
-	    }
-	    //HERE STUFF
-	    (*output)=malloc(sizeof(token));
-	    (*output)->type=type;
-	    if(type==RED_IN_HERE)
-	    {
-	    //Important, backslash stuff
-	    char * text = s->input[s->curIndex].text; 
-	    //IMPORTANT OR THE END OF STDINPUT from packet
 	    char *stdinString=malloc(sizeof(char)*1);
 	    char *outputString=malloc(sizeof(char));
 	    size_t size=1;
@@ -604,14 +542,89 @@ int redirect(sortedTokens *s, token **arr)
 	    }
 
 	    outputString=realloc(outputString, sizeof(char) * (oldSize+1));
+	    outputString[oldSize]='\0';
+	    return outputString;
+}
 
-	     outputString[oldSize]='\0';
-	    (*output)->text=outputString;
-	    }
-	    else
+
+int redirect(sortedTokens *s, token **arr)
+{
+
+    if(debugPrint1)
+    {
+	    printf("Line Number: %d, in redirect\n", __LINE__);
+    }
+    int type=s->input[s->curIndex].type;
+    token **output=firstSecondOrThird(s);
+    if(type==RED_OUT || type==RED_OUT_APP) 
+    {
+	    //IMPORTANT HAVE TO CHECK FOR DIFFERENCE B/T output and error redirection
+	    if(s->outputRedirection)
 	    {
-	    (*output)->text= copyof(s->input[s->curIndex].text);
+		    //IMPORTANT WHAT IF TRY TO OUPUT TWICE TO SAME PLACE
+		    s->error=1;
+		    fprintf(stderr, "trying too many output redirections\n");
+		    return 0;
+
 	    }
+	    s->outputRedirection=1;
+	    (*output)=malloc(sizeof(token));
+	    (*output)->type=type;
+		    s->curIndex++;
+		    if(s->input[s->curIndex].type!=SIMPLE)
+		    {
+			    s->error=1;
+			    fprintf(stderr, "file arg needed\n");
+			    (*output)->text=0;
+			    return 0;
+		    }
+		    (*output)->text = copyof(s->input[s->curIndex].text);
+	    if(s->error!=1)
+	    {
+	    s->curIndex++;
+	    }
+    }
+    else if(type==RED_ERR_OUT || type==RED_ERR_CLS)
+    {
+	    if(s->errorRedirection)
+	    {
+		    s->error=1;
+		    fprintf(stderr, "trying too many error redirection\n");
+		    return 0;
+	    }
+	    s->errorRedirection=1;
+	    s->curIndex++;
+	    (*output)=malloc(sizeof(token));
+	    (*output)->type=type;
+	    (*output)->text=0;
+    }
+    else if(type==RED_IN || type==RED_IN_HERE)
+    {
+	    if(s->inputRedirection)
+	    {
+		    s->error=1;
+		    fprintf(stderr, "trying too many input redirection\n");
+		    return 0;
+	    }
+	    if(type==RED_IN_HERE && tooManyHere(s))
+	    {
+		    s->error=1;
+		    fprintf(stderr, "try too many input redirections\n");
+		    return 0;
+	    }
+	    s->inputRedirection=1;
+	    s->curIndex++;
+
+	    if(s->input[s->curIndex].type!=SIMPLE)
+	    {
+		    s->error=1;
+		    fprintf(stderr, "file arg needed\n");
+		    return 0;
+	    }
+	    //HERE STUFF
+	    (*output)=malloc(sizeof(token));
+	    (*output)->type=type;
+	    (*output)->text= copyof(s->input[s->curIndex].text);
 	    s->curIndex++;
     }
     else
