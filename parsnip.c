@@ -198,7 +198,7 @@ void addToArr(sortedTokens*s, token **arr)
 	{
 	newSize+=1;
 	}
-	if(s->inputRedirection)
+	if(s->inputRedirection==1)
 	{
 	newSize+=1;
 	}
@@ -463,7 +463,7 @@ int tooManyHere(sortedTokens *s)
 	return 0;
 }
 
-
+//IMPORTANT have to deal with strings being left in SortedToken
 char * hereDocument(char *text)
 {
 
@@ -475,11 +475,13 @@ char * hereDocument(char *text)
 	    endOfFile=getline(&stdinString, &size, stdin);
 	    //IMPORTANT, make sure to not add above limit for stdin, after been expanded
 	    //IMPORTANT, have to add newline if not there
+/*
 	    if(endOfFile==-1)
 	    {
 		    oldSize++;
 		    outputString[0]='\n';
 	    }
+*/
 	    while(endOfFile!=-1 && same(text,stdinString)==0)
 	    {
 		    int index=0;
@@ -632,12 +634,14 @@ int redirect(sortedTokens *s, token **arr)
 		    fprintf(stderr, "trying too many input redirection\n");
 		    return 0;
 	    }
+	    /*
 	    if(type==RED_IN_HERE && tooManyHere(s))
 	    {
 		    s->error=1;
 		    fprintf(stderr, "try too many input redirections\n");
 		    return 0;
 	    }
+	    */
 	    s->inputRedirection=1;
 	    s->curIndex++;
 
@@ -733,7 +737,7 @@ void prefix(sortedTokens *s, token **arr)
 	int type=s->input[s->curIndex].type;
 	char *text=s->input[s->curIndex].text;
 	//HAVE TO CHECK FOR EXCEPTION HERE WHEN EQUALS IS LAST CHARACTER IN TEXT
-	if(type==SIMPLE && strchr(text,'='))
+	if(type==SIMPLE && strchr(text,'=') && strlen(text)>1)
 	{
 		local(s, arr);
 		prefix(s, arr);
@@ -800,7 +804,7 @@ token * stage(sortedTokens *s, token **arr)
 	    {
 		    addExtraToken(s2, &arr2, PAR_RIGHT,0);
 	    }
-	    else
+	    else if(s2->error==0)
 	    {
 		    s->error=1;
 		    fprintf(stderr, "Missing Closing Parenthesis\n");
@@ -871,6 +875,8 @@ void pipeline(sortedTokens *s, token **arr)
 		    break;
 	    }
 	    addExtraToken(s, arr, PIPE,1);
+	    
+	    s->inputRedirection=2;
 	    arr2=stage(s, arr);
 	    if(s->error==1)
 	    {break;}
