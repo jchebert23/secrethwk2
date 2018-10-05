@@ -134,6 +134,7 @@ void destroySortedToken(sortedTokens *s, int fullDelete)
 	{
 		free(s->first);
 	}
+
 	if(s->second)
 	{
 		free(s->second);
@@ -212,6 +213,7 @@ void addToArr(sortedTokens*s, token **arr)
 	if(debugPrint1)
 	{
 		printf("NEW SIZE: %d\n", newSize);
+		printf("output %d, input%d, error%d\n", s->outputRedirection, s->inputRedirection, s->errorRedirection);
 	}
 	int curIndex=0;
 	s->sizeOfOutputArr+=newSize;
@@ -512,6 +514,10 @@ char * hereDocument(char *text)
 			    {
 				    curWord++;	
 				    envVar=getenv(curWord);
+				    if(envVar==0)
+				    {
+					    curWord--;
+				    }
 			    }
 			    if(envVar)
 			    {
@@ -528,7 +534,7 @@ char * hereDocument(char *text)
 			    }
 			    oldSize+=lengthOfWord;
 			    escapeCharacter=0;
-			    while(strchr(VARCHR, stdinString[index])==0 && stdinString[index]!='\n' )
+			    while(strchr(VARCHR, stdinString[index])==0 && stdinString[index]!='\n' && !(stdinString[index]=='$' && escapeCharacter==0))
 			    {
 				    if(escapeCharacter && (stdinString[index]=='$' || stdinString[index]=='\\'))
 				    {
@@ -556,13 +562,16 @@ char * hereDocument(char *text)
 		    }
 		    if(escapeCharacter)
 		    {
+			    outputString[oldSize-1]=0;
 			    oldSize--;
+			    
 		    }
-		    outputString=realloc(outputString, sizeof(char) * (oldSize+1));
 		    free(stdinString); 
 		    stdinString=0;
 		    if(escapeCharacter==0)
 		    {
+
+		    outputString=realloc(outputString, sizeof(char) * (oldSize+1));
 		    outputString[oldSize]='\n';
 		    }
 		    oldSize++;
@@ -596,16 +605,17 @@ int redirect(sortedTokens *s, token **arr)
 
 	    }
 	    s->outputRedirection=1;
-	    (*output)=malloc(sizeof(token));
-	    (*output)->type=type;
 		    s->curIndex++;
 		    if(s->input[s->curIndex].type!=SIMPLE)
 		    {
 			    s->error=1;
+			    s->outputRedirection=0;
 			    fprintf(stderr, "file arg needed\n");
-			    (*output)->text=0;
 			    return 0;
 		    }
+		    
+	    (*output)=malloc(sizeof(token));
+	    (*output)->type=type;
 		    (*output)->text = copyof(s->input[s->curIndex].text);
 	    if(s->error!=1)
 	    {
@@ -648,6 +658,7 @@ int redirect(sortedTokens *s, token **arr)
 	    if(s->input[s->curIndex].type!=SIMPLE)
 	    {
 		    s->error=1;
+		    s->inputRedirection=0;
 		    fprintf(stderr, "file arg needed\n");
 		    return 0;
 	    }
@@ -811,12 +822,19 @@ token * stage(sortedTokens *s, token **arr)
 		    return 0;
 	    }
 	    s->curIndex++;
+	    if(debugPrint1)
+	    {
+		    printf("Size of arr2:%d\n",s->sizeOfOutputArr);
+	    }
 	    addExtraToken(s2, &arr2, NONE, 0);
 	    s->error=s2->error;
 	    destroySortedToken(s2, 1);
 	    if(s->error)
 	    {
+
+		    
 		    freeList(arr2);
+		    
 		    return 0;
 
 	    }
@@ -866,7 +884,15 @@ void pipeline(sortedTokens *s, token **arr)
 	    printf("About to print to ouput arr\n");
 	    printOutputArr(s,arr);
     }
-    while(s->input[s->curIndex].type==PIPE)
+    if(s->error==1)
+    {
+if(s->input[s->curIndex-1].type==NONE)
+	    {
+		    s->curIndex--;
+	    }
+
+    }
+    while(s->error==0 && s->input[s->curIndex].type==PIPE)
     {
 	    if(s->outputRedirection)
 	    {
@@ -878,10 +904,15 @@ void pipeline(sortedTokens *s, token **arr)
 	    
 	    s->inputRedirection=2;
 	    arr2=stage(s, arr);
-	    if(s->error==1)
-	    {break;}
 	    
 	    addToArr(s, arr);
+	    if(s->error==1)
+	    {if(s->input[s->curIndex-1].type==NONE)
+	    {
+		    s->curIndex--;
+	    }
+		    break;}
+	    
 
 	    if(arr2)
 	    {
